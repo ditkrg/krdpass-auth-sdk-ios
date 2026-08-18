@@ -1,0 +1,10 @@
+# Actions only: the package has no third-party dependencies, and the podspec declares
+# nothing but Apple system frameworks.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7

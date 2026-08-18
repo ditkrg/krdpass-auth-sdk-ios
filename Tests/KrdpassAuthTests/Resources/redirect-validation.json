@@ -1,0 +1,349 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KRDPASS Auth SDK Redirect URI Validation Test Vectors",
+  "description": "Canonical redirect-response validation cases shared by KRDPASS Auth SDK integrations.",
+  "version": "2.3",
+  "rule": {
+    "summary": "A response must use HTTPS and the configured redirect origin and encoded path. Query parameters registered on the redirect URI must be preserved exactly; single-valued authorization-response metadata is ignored.",
+    "details": [
+      "Configured and incoming redirect URIs must use HTTPS, have a non-empty host, and contain neither userinfo nor a fragment.",
+      "The incoming URI must match the configured URI's normalized scheme, host, and effective port.",
+      "The incoming URI's encoded path must exactly match the configured URI's encoded path; host-only matching is not sufficient.",
+      "Every query parameter registered on the redirect URI must be present with the same value and multiplicity in the response URI.",
+      "Unconfigured authorization-response parameters may occur once and are ignored, as required by OAuth. Duplicate parameters and extra occurrences of configured query names are rejected.",
+      "A security response parameter that is present but blank (empty or whitespace only, with or without an '=') is malformed and rejected.",
+      "error_description and error_uri are deliberately not security response parameters. They are display strings shown to the user, never inputs to a security decision, so a blank one is cosmetic rather than malformed and must not fail the callback.",
+      "A response carrying both code and error is ambiguous and is rejected, so that the order in which an implementation checks the two branches can never decide the outcome.",
+      "Percent escapes must be syntactically well formed. Byte sequences that are well formed as escapes but are not valid UTF-8 are decoded lossily (U+FFFD) rather than rejected; rejecting them needs byte-level URI parsing and is out of scope for redirect matching.",
+      "Authorization-server registration remains the final authority for exact redirect URI matching. These client-side checks are defence in depth."
+    ],
+    "securityResponseParameters": [
+      "code",
+      "state",
+      "error",
+      "iss"
+    ]
+  },
+  "configuredRedirectUri": "https://example.gov/_krdpass/oauth/callback",
+  "vectors": [
+    {
+      "id": "valid-exact-match",
+      "description": "Exact configured redirect URI",
+      "input": "https://example.gov/_krdpass/oauth/callback",
+      "expected": true,
+      "reason": "The configured URI itself is a valid response target."
+    },
+    {
+      "id": "valid-exact-path-oauth-response",
+      "description": "Configured path with OAuth response parameters",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": true,
+      "reason": "OAuth response parameters may be appended to the exact configured redirect URI."
+    },
+    {
+      "id": "valid-exact-path-oauth-error",
+      "description": "Configured path with an OAuth error response",
+      "input": "https://example.gov/_krdpass/oauth/callback?error=access_denied&error_description=cancelled&state=xyz789",
+      "expected": true,
+      "reason": "OAuth error response parameters may be appended to the exact configured redirect URI."
+    },
+    {
+      "id": "invalid-duplicate-oauth-response-parameter",
+      "description": "Duplicate OAuth response parameter",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&code=attacker&state=xyz789",
+      "expected": false,
+      "reason": "An OAuth response parameter may occur only once to prevent ambiguous parsing."
+    },
+    {
+      "id": "invalid-same-host-different-path",
+      "description": "Same host with a different callback path",
+      "input": "https://example.gov/api/auth/callback?code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "The encoded path must exactly match the configured redirect URI."
+    },
+    {
+      "id": "invalid-same-host-root-path",
+      "description": "Same host with the root path",
+      "input": "https://example.gov/?code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "Host-only matching is insufficient; the configured callback path is required."
+    },
+    {
+      "id": "valid-single-valued-response-metadata",
+      "description": "Configured path with OpenID Connect session metadata",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&session_state=server-session",
+      "expected": true,
+      "reason": "The endpoint still matches exactly and OAuth clients ignore unrecognized single-valued response parameters."
+    },
+    {
+      "id": "invalid-duplicate-response-metadata",
+      "description": "Duplicate unrecognized authorization response parameter",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&session_state=one&session_state=two",
+      "expected": false,
+      "reason": "Authorization response parameters must not be included more than once."
+    },
+    {
+      "id": "valid-fixed-query-and-oauth-response",
+      "description": "Configured fixed query parameters are retained while OAuth response parameters are appended",
+      "configuredRedirectUri": "https://example.gov/_krdpass/oauth/callback?tenant=citizen&locale=ku",
+      "input": "https://example.gov/_krdpass/oauth/callback?tenant=citizen&locale=ku&code=abc123&state=xyz789",
+      "expected": true,
+      "reason": "Registered query parameters are preserved and OAuth response parameters are appended."
+    },
+    {
+      "id": "invalid-fixed-query-missing",
+      "description": "Configured fixed query parameter is missing",
+      "configuredRedirectUri": "https://example.gov/_krdpass/oauth/callback?tenant=citizen&locale=ku",
+      "input": "https://example.gov/_krdpass/oauth/callback?tenant=citizen&code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "Every registered query parameter must be preserved."
+    },
+    {
+      "id": "invalid-fixed-query-value-changed",
+      "description": "Configured fixed query parameter value changed",
+      "configuredRedirectUri": "https://example.gov/_krdpass/oauth/callback?tenant=citizen&locale=ku",
+      "input": "https://example.gov/_krdpass/oauth/callback?tenant=attacker&locale=ku&code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "Registered query parameter values are part of the redirect URI."
+    },
+    {
+      "id": "invalid-fixed-query-duplicated",
+      "description": "Configured fixed query parameter multiplicity changed",
+      "configuredRedirectUri": "https://example.gov/_krdpass/oauth/callback?tenant=citizen",
+      "input": "https://example.gov/_krdpass/oauth/callback?tenant=citizen&tenant=attacker&code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "Registered query parameter multiplicity must be preserved."
+    },
+    {
+      "id": "invalid-custom-scheme",
+      "description": "Custom scheme",
+      "input": "myapp://oauth/callback",
+      "expected": false,
+      "reason": "Only HTTPS redirect URIs are permitted."
+    },
+    {
+      "id": "invalid-http-scheme",
+      "description": "HTTP instead of HTTPS",
+      "input": "http://example.gov/_krdpass/oauth/callback",
+      "expected": false,
+      "reason": "Only HTTPS redirect URIs are permitted."
+    },
+    {
+      "id": "invalid-empty-host",
+      "description": "Missing host",
+      "input": "https:///_krdpass/oauth/callback",
+      "expected": false,
+      "reason": "A host is required."
+    },
+    {
+      "id": "invalid-host-mismatch",
+      "description": "Different host",
+      "input": "https://malicious.gov/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "The normalized host must match the configured redirect URI."
+    },
+    {
+      "id": "invalid-host-mismatch-subdomain",
+      "description": "Subdomain mismatch",
+      "input": "https://api.example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "Subdomains are distinct redirect hosts."
+    },
+    {
+      "id": "invalid-port-mismatch",
+      "description": "Different effective port",
+      "input": "https://example.gov:8443/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "The effective port is part of the redirect URI authority."
+    },
+    {
+      "id": "invalid-userinfo",
+      "description": "Userinfo in response URI",
+      "input": "https://example.gov@malicious.gov/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": false,
+      "reason": "Userinfo is not permitted in a redirect URI."
+    },
+    {
+      "id": "invalid-fragment",
+      "description": "Fragment in response URI",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789#fragment",
+      "expected": false,
+      "reason": "Fragments are not part of a registered redirect URI."
+    },
+    {
+      "id": "invalid-malformed-uri",
+      "description": "Malformed URI",
+      "input": "not-a-valid-uri",
+      "expected": false,
+      "reason": "The response must be a valid absolute HTTPS URI."
+    },
+    {
+      "id": "invalid-empty-string",
+      "description": "Empty URI",
+      "input": "",
+      "expected": false,
+      "reason": "The response must be a valid absolute HTTPS URI."
+    },
+    {
+      "id": "valid-case-insensitive-scheme-and-host",
+      "description": "Case variation in scheme and host",
+      "input": "HTTPS://EXAMPLE.GOV/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": true,
+      "reason": "URL scheme and host comparison are case-insensitive."
+    },
+    {
+      "id": "valid-ipv4-host",
+      "description": "IPv4 host with exact path",
+      "configuredRedirectUri": "https://192.168.1.1/_krdpass/oauth/callback",
+      "input": "https://192.168.1.1/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": true,
+      "reason": "IPv4 hosts are supported when the exact path also matches."
+    },
+    {
+      "id": "valid-ipv6-host",
+      "description": "IPv6 host with exact path",
+      "configuredRedirectUri": "https://[2001:db8::1]/_krdpass/oauth/callback",
+      "input": "https://[2001:db8::1]/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expected": true,
+      "reason": "IPv6 hosts are supported when the exact path also matches."
+    },
+    {
+      "id": "valid-iss-response-parameter",
+      "description": "RFC 9207 iss appended to the configured redirect URI",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https%3A%2F%2Faccount.id.krd",
+      "expected": true,
+      "reason": "iss is an authorization response parameter. Whether its value is the expected issuer is decided by the issuerVectors contract, not by redirect matching."
+    },
+    {
+      "id": "invalid-empty-iss",
+      "description": "Empty iss value",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=",
+      "expected": false,
+      "reason": "iss is a security response parameter: present but blank is malformed."
+    },
+    {
+      "id": "invalid-whitespace-iss",
+      "description": "Whitespace-only iss value",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=%20",
+      "expected": false,
+      "reason": "A whitespace-only security response parameter is blank, not a value."
+    },
+    {
+      "id": "invalid-valueless-iss",
+      "description": "iss with no value at all",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss",
+      "expected": false,
+      "reason": "A security response parameter with no '=' carries no value and is rejected."
+    },
+    {
+      "id": "invalid-code-and-error-together",
+      "description": "Response carrying both code and error",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&error=access_denied&state=xyz789",
+      "expected": false,
+      "reason": "A response carrying both code and error is ambiguous; branch order must never decide the outcome."
+    },
+    {
+      "id": "valid-invalid-utf8-percent-sequence",
+      "description": "Response parameter value whose percent escapes are not valid UTF-8",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&session_state=%FF",
+      "expected": true,
+      "reason": "%FF is a well formed percent escape that is not valid UTF-8. It is decoded lossily to U+FFFD and accepted; only syntactically malformed escapes are rejected."
+    }
+  ],
+  "issuerRule": {
+    "summary": "RFC 9207: when an authorization response carrying a code also carries iss, the percent-decoded iss must exactly equal the environment's authorization server URL. An absent iss is accepted.",
+    "details": [
+      "The comparison is exact string equality after percent-decoding. Trailing slashes, case, and ports are not normalised, matching how the SDKs already compare the id_token iss claim against the same environment value.",
+      "iss is compared only on the success branch. CAS omits iss on error responses, and an error response delivers no credential to bind to an issuer.",
+      "An absent iss must not fail: requiring it would reject every CAS error callback.",
+      "A present-but-blank iss never reaches this comparison; the redirect-response rule above rejects it first as invalid_redirect."
+    ],
+    "environments": {
+      "production": "https://account.id.krd",
+      "development": "https://auth.dev.krd"
+    }
+  },
+  "issuerVectors": [
+    {
+      "id": "issuer-matches-on-success-percent-encoded",
+      "description": "Percent-encoded iss equal to the production authorization server",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https%3A%2F%2Faccount.id.krd",
+      "expectedState": "xyz789",
+      "expectedResult": "success",
+      "reason": "This is the shape CAS actually sends: iss last and percent-encoded."
+    },
+    {
+      "id": "issuer-matches-on-success-unencoded",
+      "description": "Literal iss equal to the production authorization server",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https://account.id.krd",
+      "expectedState": "xyz789",
+      "expectedResult": "success",
+      "reason": "Percent-encoding of the iss value is not significant; the decoded value is compared."
+    },
+    {
+      "id": "issuer-mismatch-on-success",
+      "description": "iss from an unrelated authorization server",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https%3A%2F%2Fattacker.example",
+      "expectedState": "xyz789",
+      "expectedResult": "issuer_mismatch",
+      "reason": "A code from a different authorization server is a mix-up attack and is rejected fail-closed."
+    },
+    {
+      "id": "issuer-mismatch-across-environments",
+      "description": "Development issuer on a production configuration",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https%3A%2F%2Fauth.dev.krd",
+      "expectedState": "xyz789",
+      "expectedResult": "issuer_mismatch",
+      "reason": "The expected issuer comes from the configured environment, not from a fixed constant."
+    },
+    {
+      "id": "issuer-mismatch-trailing-slash",
+      "description": "Expected issuer with a trailing slash",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https%3A%2F%2Faccount.id.krd%2F",
+      "expectedState": "xyz789",
+      "expectedResult": "issuer_mismatch",
+      "reason": "The comparison is exact; issuer identifiers are not URL-normalised."
+    },
+    {
+      "id": "issuer-matches-development",
+      "description": "Development issuer on a development configuration",
+      "environment": "development",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789&iss=https%3A%2F%2Fauth.dev.krd",
+      "expectedState": "xyz789",
+      "expectedResult": "success",
+      "reason": "The development environment's authorization server URL is the expected issuer there."
+    },
+    {
+      "id": "issuer-absent-on-success",
+      "description": "Success response with no iss at all",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?code=abc123&state=xyz789",
+      "expectedState": "xyz789",
+      "expectedResult": "success",
+      "reason": "iss is optional: an authorization server that does not support RFC 9207 must still work."
+    },
+    {
+      "id": "issuer-absent-on-error",
+      "description": "Error response with no iss at all",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?error=server_error&error_description=boom&state=xyz789",
+      "expectedState": "xyz789",
+      "expectedResult": "server_error",
+      "reason": "CAS omits iss on error responses; requiring it would break every error callback."
+    },
+    {
+      "id": "issuer-not-compared-on-error",
+      "description": "Error response carrying an unrelated iss",
+      "environment": "production",
+      "input": "https://example.gov/_krdpass/oauth/callback?error=server_error&error_description=boom&state=xyz789&iss=https%3A%2F%2Fattacker.example",
+      "expectedState": "xyz789",
+      "expectedResult": "server_error",
+      "reason": "The error branch delivers no credential to bind to an issuer, so iss is not compared there."
+    }
+  ]
+}

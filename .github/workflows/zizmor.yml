@@ -1,0 +1,34 @@
+name: GitHub Actions Security Analysis with zizmor
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: Run zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          # Report everything from low severity upwards.
+          min-severity: low
+          # advanced-security uploads SARIF, and in SARIF mode zizmor always exits 0, so
+          # findings never fail the job. Annotations mode keeps zizmor's exit code, which
+          # is what turns this workflow from advisory into a real gate. The two options
+          # are mutually exclusive in the action.
+          advanced-security: false
+          annotations: true

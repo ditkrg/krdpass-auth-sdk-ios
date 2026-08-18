@@ -1,0 +1,61 @@
+name: Release
+
+# Tagging vX.Y.Z creates a GitHub Release. Consumers install via SPM / CocoaPods git tag.
+on:
+  push:
+    tags: ['v*']
+
+# Least privilege: the default token is read-only; only the release job elevates.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # SPM and CocoaPods consumers resolve this tag but read the podspec version, so a
+      # tag that disagrees with the podspec ships a release nobody can install correctly.
+      # The tag reaches Ruby only through the environment, never through the script text.
+      - name: Verify that the tag exactly matches the podspec version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          ruby <<'RUBY'
+          tag = ENV.fetch('TAG')
+          podspec = File.read('KrdpassAuth.podspec')
+          version = podspec[/^\s*s\.version\s*=\s*['"]([^'"]+)['"]/, 1]
+          abort 'Could not find s.version in KrdpassAuth.podspec.' if version.nil?
+          abort "Tag #{tag} does not match podspec version #{version}." unless tag == "v#{version}"
+          puts "Tag #{tag} matches podspec version #{version}."
+          RUBY
+      # A release with no changelog entry ships notes nobody wrote.
+      - name: Verify that the CHANGELOG has an entry for this version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          if ! grep -qF "## [$version]" CHANGELOG.md; then
+            echo "CHANGELOG.md has no '## [$version]' entry."
+            exit 1
+          fi
+          echo "CHANGELOG.md documents $version."
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Run tests
+        run: ./scripts/test_ios.sh
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
