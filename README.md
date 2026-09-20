@@ -5,13 +5,13 @@ identity app over a Universal Link and receives the result back at your Universa
 redirect URI. It is not a browser or WebView flow.
 
 Full integration guide, onboarding, error codes and security requirements:
-**[KRDPASS documentation](https://docs.digital.gov.krd/software-development/04-interoperability/11-krdpass-sign-in-with-krdpass.html)**
+**[KRDPASS documentation](https://docs.digital.gov.krd/software-development/04-interoperability/11-krdpass-overview.html)**
 
 ## Requirements
 
 - iOS 15.0, Swift 6.0 (Xcode 16 or newer)
 - A `clientId`, approved scopes, and an HTTPS `redirectUri`. See
-  [Getting started](https://docs.digital.gov.krd/software-development/04-interoperability/12-krdpass-getting-started.html).
+  [Getting started](https://docs.digital.gov.krd/software-development/04-interoperability/13-krdpass-onboarding.html).
 
 ## Install
 
@@ -148,7 +148,7 @@ certificates or route through a proxy.
 ## Error handling
 
 Every error code, what emits it, and how to handle it:
-[Testing and go-live](https://docs.digital.gov.krd/software-development/04-interoperability/14-krdpass-testing-and-go-live.html).
+[Testing and go-live](https://docs.digital.gov.krd/software-development/04-interoperability/15-krdpass-testing.html).
 
 `invalid_redirect` is defined for cross-SDK parity but this SDK never delivers it: a callback
 that does not match the configured endpoint leaves `handle(_:)` returning false, and the flow
@@ -158,7 +158,7 @@ ends as `cancelled` once the foreground watcher sees the app return without a re
 
 `getUserInfo`, `refreshTokens`, `revokeToken`, `verifyToken` and `decodeTokenUnverified` are
 `async` methods on `KrdpassAuth`. Scopes, claims and token handling rules:
-[Reference](https://docs.digital.gov.krd/software-development/04-interoperability/15-krdpass-reference.html).
+[Reference](https://docs.digital.gov.krd/software-development/04-interoperability/16-krdpass-reference.html).
 
 The SDK never persists tokens. Storage requirements:
 [Token storage](https://github.com/ditkrg/krdpass-auth-samples/blob/main/docs/TOKEN-STORAGE.md).
